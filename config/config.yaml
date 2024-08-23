@@ -1,3 +1,8 @@
+# --------------------------- Project info ---------------------------- #
+DATE:
+EXPERIMENTS PERFORMED BY:
+DESCRIPTION:
+
 # --------------------------- Default file paths ---------------------------- #
 SAMPLE_MANIFEST: 'config/sample_manifest.tsv'
 
