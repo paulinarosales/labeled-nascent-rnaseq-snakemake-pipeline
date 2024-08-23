@@ -23,13 +23,15 @@ To use this pipeline you would first need to create a Snakemake environment and 
     3. **Treatment**: Condition (treated/untreated, fed/starved, etc.)
     4. **Bio_rep:** Biological replicate number
     5. **Labeling_method:** Metabolic labeling method (SLAMseq or TimeLapse)
-    6. **Labeling_time:** Incubation time for methabolic labeling
-    7. **Target_genome:** ENCODE target genome for sequencing (*supported options:* M25, M32, 19, 38)
-    8. **Sequencer**: Sequencer to define `—2colour` parameter for the trimming (*supported options:* HiSeq4000, NovaSeq, NextSeq500, NovaSeqX)
-    9. **Seq_mode**: Library preparation strategy (*supported options:* mRNA, totalRNA)
-    10. **Seq_length**: Sequencing length
-    11. **Fastq_handle:** Particular handle useful for raw `.fastq.gz` files selection using the name from the sequencing facility (number, extension, etc.)
-    12. **Fastq_lanes:** Number of `.fastq.gz` files lanes from the sequencing facility (used for `merge_fq_lanes` rule)
+    6. **Labeling_time:** Incubation time for methabolic labeling (add mins or h to indicate time)
+    7. **Conversion:** Nucleotide conversion generated from the chemistry (eg. TC for SLAM)
+    8. **Target_genome:** ENCODE target genome for sequencing (*supported options:* M25, M32, 19, 38)
+    9. **Sequencer**: Sequencer to define `—2colour` parameter for the trimming (*supported options:* HiSeq4000, NovaSeq, NextSeq500, NovaSeqX)
+    10. **Seq_mode**: Library preparation strategy 
+    11. **Seq_length**: Sequencing length
+    12. **Fastq_handle:** Particular handle useful for raw `.fastq.gz` files selection using the name from the sequencing facility (number, extension, etc.)
+    13. **Fastq_lanes:** Number of `.fastq.gz` files lanes from the sequencing facility (used for `merge_fq_lanes` rule)
+    14. **Lanes_ID:** Starting number ID for the lanes (eg. for 2 lanes L007-L008 Lanes_ID is 7)
  
     An example of the sample manifest is available [here](./config/sample_manifest_example.tsv).
 
