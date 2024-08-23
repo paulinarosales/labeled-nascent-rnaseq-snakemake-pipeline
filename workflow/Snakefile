@@ -1,0 +1,223 @@
+# ------------- SLAM-SEQ ANALYSIS ------------
+#
+#   SLAM-Seq data analysis (SlamDunk) for paired-end reads
+#
+#   Author: Paulina Rosales Becerra (2022)
+
+import os
+import pandas as pd
+import requests
+import urllib3
+from snakemake.utils import min_version
+from snakemake.logging import logger
+
+# Minimal version of snakemake
+min_version('6.8.0')
+
+
+# Load and read Snakemake config 
+configfile: 'config/config.yaml'
+
+
+# shell('conda config --add envs_dirs /home/ife/paulina.rosales/miniconda3/envs') # use when snakemake cannot export/find local env 
+
+# --------------------------- Read config file ---------------------------- #
+
+RESULTS_DIR = Path(config['RESULTS_DIR'])
+FIGURES_DIR = Path(config['FIGURES_DIR'])
+QC_DIR = Path(config['QC_DIR'])
+
+EXTERNAL_DATA_DIR = Path(config['EXTERNAL_DATA_DIR'])
+FASTQ_DIR = Path(config['FASTQ_DIR'])
+INDEX_DIR = Path(config['INDEX_DIR'])
+
+LOG_DIR = Path(config['LOG_DIR'])
+TEMP_DIR = Path(config['TEMP_DIR'])
+REPORT_DIR = Path(config['REPORT_DIR'])
+
+SUBSET_COLUMN = config['SUBSET_COLUMN']
+
+HISAT3N_BIN_PATH = config['HISAT3N']['HISAT3N_BIN_PATH']
+
+# --------------------------- Read sample manifest ---------------------------- #
+SAMPLE_MANIFEST = pd.read_table(Path(config['SAMPLE_MANIFEST']))
+SAMPLE_MANIFEST['Bio_rep'] = SAMPLE_MANIFEST.Bio_rep.astype(str)
+
+# Specify the sample info combinations to use as label per sample
+SAMPLES = SAMPLE_MANIFEST.set_index(['Sample_type',
+                                     'Treatment',
+                                     'Bio_rep'])
+
+
+# --------------------------- Dictitonaries ---------------------------- #
+
+# GENCODE releases dictionary (release -> genome name # UCSC genome equivalent)
+GENCODE_VERSIONS = {
+    'M25': 'GRCm38', # mm10
+    'M32': 'GRCm39', # mm39
+    '19': 'GRCh37', # h19
+    '38': 'GRCh38', # h38 
+    # 'M1': 'NCBI37' # mm9 uses different handle
+}
+
+HISAT3N_INDEX_SUFFIX = {
+            # CT / GA
+            'C,T': ['CT','GA'],
+            'T,C': ['CT','GA'],
+            'A,G': ['CT','GA'],
+            'G,A': ['CT','GA'],
+            # AC / TG
+            'A,C': ['AC','TG'],
+            'C,A': ['AC','TG'],
+            'G,T': ['AC','TG'],
+            'T,G': ['AC','TG'],
+            # AT / TA
+            'A,T': ['AT','TA'],
+            'T,A': ['AT','TA'],
+            # CG / GC
+            'C,G': ['CG','GC'],
+            'G,C': ['CG','GC'],
+}
+
+# Output files dictionary
+TARGETS = {# -- Raw procesing
+            'raw_seq': [], 
+            'merged_fq': [],
+            'fastqc': [],
+            'trimmed': [],
+            'hisat3n_prefilter': [],
+            'hisat3n': [],
+            'samtools_sort': [],
+            # -- Downstream analysis
+            'samtools_stats': [],
+            'hisat3n_tab': [],
+            'bakR': [],
+            'featureCounts': [],
+            'nascent_cts': [],
+            'global_conv_rates': [],
+            'conv_rates': [],
+            'figures': [],
+            'unaligned_reads': [],
+            # -- All samples 
+            'count_mtx': [],
+            'summary_tabs': []
+            }
+
+# as array for different genomes?
+GENCODE_RELEASE = pd.unique(SAMPLES['Target_genome'])[0]
+GENOME = GENCODE_VERSIONS[GENCODE_RELEASE]
+CONVERSION = config['HISAT3N']['BASE_CHANGE']
+IDX_SUFFIX = HISAT3N_INDEX_SUFFIX[CONVERSION] # expand('3n.{conversion}.{number}.ht2', conversion=HISAT3N_INDEX_SUFFIX[CONVERSION], number=range(1,9))
+# print(IDX_SUFFIX)
+
+
+for sample_type, treatment, bio_rep in SAMPLES.index:
+    identifier = SAMPLES.loc[(sample_type, treatment, bio_rep), 'Identifier']
+    handle = SAMPLES.loc[(sample_type, treatment, bio_rep), 'Fastq_handle']
+    lane_id = SAMPLES.loc[(sample_type, treatment, bio_rep), 'Lanes_ID']
+    # Select samples with specified value on a given column in the sample manifest (USE CONFIG FILE TO SELECT)
+    if SUBSET_COLUMN:
+        if SAMPLES.loc[(sample_type, treatment, bio_rep), SUBSET_COLUMN] == config['SUBSET_VALUE']:
+            # --------- Raw procesing
+            TARGETS['raw_seq'].append(str(FASTQ_DIR / 'raw'/ f'{identifier}_S{handle}_L00{lane_id}_R2_001.fastq.gz'))
+            TARGETS['merged_fq'].append(str(FASTQ_DIR / 'merged'/ f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_R2.fq.gz'))
+            TARGETS['trimmed'].append(str(RESULTS_DIR / 'fastq' / 'trimmed' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_R1.fq.gz_trimming_report.txt'))
+            # --------- Downstream analysis
+
+    else:
+            # --------- Raw procesing
+            TARGETS['raw_seq'].append(str(FASTQ_DIR / 'raw'/ f'{identifier}_S{handle}_L001_R2_001.fastq.gz'))
+            TARGETS['merged_fq'].append(str(FASTQ_DIR / 'merged'/ f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_R2.fq.gz'))
+            TARGETS['fastqc'].append(expand('results/quality_control/raw_fastq/{sample_type}_{treatment}_Bio-rep_{bio_rep}/{sample_type}_{treatment}_Bio-rep_{bio_rep}_R{read}_fastqc.html', sample_type=sample_type, treatment=treatment, bio_rep=bio_rep, read=[1,2]))
+            TARGETS['trimmed'].append(str(RESULTS_DIR / 'fastq' / 'trimmed' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_R1.fq.gz_trimming_report.txt'))
+            TARGETS['hisat3n'].append(str(RESULTS_DIR / 'sam_files' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.hisat3n_align.sam'))
+            TARGETS['samtools_sort'].append(str(RESULTS_DIR / 'sam_files' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.hisat3n_align.sort.bam'))
+            TARGETS['hisat3n_tab'].append(str(RESULTS_DIR / 'conversion_tables' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.hisat3n_tab.tsv'))
+            # --------- Downstream analysis
+            TARGETS['samtools_stats'].append(str(RESULTS_DIR / 'quality_control' / 'samtools' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.hisat3n_align.sort.stats'))
+            TARGETS['samtools_stats'].append(str(RESULTS_DIR / 'quality_control' / 'samtools' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.hisat3n_align.sort.idxstats'))
+            TARGETS['samtools_stats'].append(str(RESULTS_DIR / 'quality_control' / 'samtools' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.hisat3n_align.sort.flagstat'))
+            TARGETS['samtools_stats'].append(str(RESULTS_DIR / 'quality_control' / 'samtools' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.hisat3n_align.sort.coverage'))
+            TARGETS['featureCounts'].append(str(RESULTS_DIR / 'counts' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_counts.transcripts.tsv'))
+            # TARGETS['nascent_cts'].append(str(RESULTS_DIR / 'counts' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_counts.gene.nascent.tsv'))
+            # TARGETS['bakR'].append(str(RESULTS_DIR / 'conversion_tables' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_conversionCounts.tsv'))
+            TARGETS['bakR'].append(str(RESULTS_DIR / 'conversion_tables' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_conversionCounts.metadata.tsv'))
+            # TARGETS['bakR'].append(str(RESULTS_DIR / 'conversion_tables' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_conversionCounts.transcripts.tsv'))
+            TARGETS['global_conv_rates'].append(str(RESULTS_DIR / 'conversion_tables' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_conversionRates.global.tsv'))
+            TARGETS['conv_rates'].append(str(RESULTS_DIR / 'conversion_tables' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_conversionRates.transcripts.tsv'))
+            TARGETS['unaligned_reads'].append(str(QC_DIR / 'unaligned_reads' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.blast.unaligned_sequences.tsv'))
+            # --------- Figures
+            TARGETS['figures'].append(str(FIGURES_DIR / 'conversions' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_conversionRates.pdf'))
+            TARGETS['figures'].append(str(FIGURES_DIR / 'conversions' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}_conversionRates.ERCCs.pdf'))
+            # --------- Summary tables
+            TARGETS['summary_tabs'].append(str(RESULTS_DIR / 'quality_control' / 'summary_tables' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}' / f'{sample_type}_{treatment}_Bio-rep_{bio_rep}.ERCC_content.tsv'))
+
+
+# --------- All samples 
+TARGETS['figures'].append(str( FIGURES_DIR / 'conversions' / 'all_samples' / 'global_conversionRates.pdf'))
+# TARGETS['count_mtx'].append(expand('results/counts/all_samples/{counts}.matrix.tsv', counts=config['NASCENT_GENECOUNTS']['MERGE_COLUMNS']))
+# TARGETS['summary_tabs'].append('results/counts/all_samples/nascent_reads_content.tsv')
+
+
+# TARGETS['count_mtx'].append(str(RESULTS_DIR / 'read_counts' / 'featureCounts_allSamples_genecounts.tsv'))
+# TARGETS['hisat3n_index'] = expand('resources/external/index/hisat3n/gencode_{release}/{genome}.genome.3n.{conversion}.{number}.ht2', release=GENCODE_RELEASE, genome=GENOME, conversion=IDX_SUFFIX, number=range(1,9))
+# print(TARGETS['hisat3n_index'])
+# --------------------------- Import rules ---------------------------- #
+
+# --------- Raw procesing 
+# include: 'rules/external_data/get_refseq.smk'
+include: 'rules/external_data/annotation_tables.smk'
+include: 'rules/pre_processing/merge_lanes.smk'
+include: 'rules/quality_control/fastqc.smk'
+include: 'rules/pre_processing/trim_galore.smk'
+include: 'rules/alignment/hisat3n.smk'
+include: 'rules/alignment/samtools.smk'
+include: 'rules/alignment/bcftools.smk'
+
+# --------- Downstream analysis
+include: 'rules/quantification/featureCounts.smk'
+include: 'rules/quantification/count_tabs.smk'
+include: 'rules/quality_control/samtools_stats.smk'
+include: 'rules/quantification/bakR.smk'
+include: 'rules/quantification/conversion_rates.smk'
+include: 'rules/quality_control/unaligned_read_blast.smk'
+
+# --------- Figures
+include: 'rules/figures/conversion_rates.smk'
+include: 'rules/quantification/summary_tabs.smk'
+
+# --------------------------- Rules ---------------------------- #
+
+
+rule multiqc_report:
+    input:
+        TARGETS['fastqc'],
+        TARGETS['trimmed'],
+        TARGETS['hisat3n'],
+        TARGETS['samtools_stats'],
+        TARGETS['featureCounts']
+        # TARGETS['count_mtx']
+    output:
+        base = directory(str(REPORT_DIR / 'multiqc'))
+    conda:
+        'envs/quality_control/multiqc.yaml'
+    log:
+        str(LOG_DIR / 'multiqc' / 'multiqc.log')
+    shell:
+        """
+        multiqc --force --interactive \
+        -o {output.base} -n multiqc_report.html \
+        -m fastqc -m cutadapt -m hisat2 -m samtools -f \
+        {REPORT_DIR} {RESULTS_DIR} {LOG_DIR} &> {log}
+        """
+
+
+rule all:
+    input:
+        TARGETS['figures'],
+        TARGETS['nascent_cts'],
+        TARGETS['count_mtx'],
+        TARGETS['summary_tabs'],
+        # 'results/quality_control/unaligned_reads/unaligned_sequences.tsv',
+        str(REPORT_DIR / 'multiqc')
+    default_target: True

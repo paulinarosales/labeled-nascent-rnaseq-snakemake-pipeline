@@ -1,0 +1,10 @@
+name: hisat-3n_dependencies_only
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python =3.7.12
+  # - hisat2 =2.2.1
+  - samtools =1.19.2
+  - subread =2.0.6
+  - bcftools =1.12

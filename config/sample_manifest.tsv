@@ -1,0 +1,8 @@
+Identifier	Sample_type	Treatment	Bio_rep	Labeling_method	Labeling_time_mins	Conversion	Target_genome	Sequencer	Seq_mode	Seq_length	Fastq_handle	Fastq_lanes	Lanes_ID	Control	Project	Batch
+24L008220	SLAM-NEW	treated	1	SLAM	x	TC	M32	NovaSeq	mRNA Ligation	100-10-10-100	252	2	7	0	Project_1078	20240603
+23L002915	TL-OLD	untreated	1	TimeLapse	0	TC	M32	NovaSeq	mRNA Ligation	100-10 10-100	95	2	1	1	Project_681	20230526
+23L002916	TL-OLD	treated	1	TimeLapse	x	TC	M32	NovaSeq	mRNA Ligation	100-10 10-100	96	2	1	0	Project_681	20230526
+22L010420	SLAM-OLD	untreated	1	SLAM	0	TC	M32	NovaSeq	mRNA Ligation	100-10 10-100	29	1	2	1	Project_469	20220803
+22L010421	SLAM-OLD	treated	1	SLAM	x	TC	M32	NovaSeq	mRNA Ligation	100-10 10-100	30	1	2	0	Project_469	20220803
+22L010422	SLAM-OLD	untreated	1	SLAM	0	TC	M32	NovaSeq	mRNA Ligation	100-10 10-100	31	1	2	1	Project_469	20220803
+22L010423	SLAM-OLD	treated	1	SLAM	x	TC	M32	NovaSeq	mRNA Ligation	100-10 10-100	32	1	2	0	Project_469	20220803

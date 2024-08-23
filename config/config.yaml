@@ -1,0 +1,86 @@
+# --------------------------- Default file paths ---------------------------- #
+SAMPLE_MANIFEST: 'config/sample_manifest.tsv'
+
+RESULTS_DIR: 'results'
+FIGURES_DIR: 'results/figures'
+QC_DIR: 'results/quality_control'
+
+EXTERNAL_DATA_DIR: 'resources/external'
+FASTQ_DIR: 'resources/fastq_seq'
+INDEX_DIR: 'resources/external/index'
+
+LOG_DIR: 'logs'
+TEMP_DIR: 'tmp'
+REPORT_DIR: 'reports'
+
+# --------------------------- Handles ---------------------------- #
+
+SUBSET_COLUMN: ''
+SUBSET_VALUE: ''
+
+# --------------------------- Params for raw processing ---------------------------- #
+
+BASE_CHANGES: ['TC']
+
+TRIM_GALORE:
+    QUALITY: 20
+    LENGTH: 20
+    CLIP_5: 1
+    CLIP_3: 1
+    EXTRA: ''
+
+BCFTOOLS:
+    PLOIDY: 2
+    MIN_QUAL: 20
+    MIN_DEPTH: 10
+    
+HISAT3N:
+    HISAT3N_BIN_PATH: '/lustre/groups/ife/schneider/paulina.rosales/bin/hisat-3n' # location of the hisat-3n git clone folder
+    HISAT3N_GENOME_INDEX_PATH: '/lustre/groups/ife/schneider/paulina.rosales/resources/hisat3n_indexes/gencode_M32' # location of the hisat-3n git clone folder
+# -- Filter --
+    BASE_CHANGE: 'T,C' # two different nucleotides for the conversion analysis separated by a comma (eg. N,N)
+# -- Build --
+    REPEAT_INDEX: 'Yes' # (options: Yes, No)
+    RESOURCES_MODE: 'Low' # (options: Default, Low)
+# -- Align --
+    # KM: 5
+    # STRANDNESS: 'RF' # --rna-strandnessK
+    ALIGN_EXTRA: '--directional-mapping-reverse --no-temp-splicesite' # 
+# -- Table --
+    TABLE_EXTRA: '--unique-only'
+
+FEATURE_COUNTS:
+    # COUNT_MODE: '--primary' #  --primary, −−fraction or -M
+    FEATURE_TYPE: 'transcript'
+    ATTRIBUTE_TYPE: 'transcript_id'
+    STRANDNESS: '1' # options:  0 (unstranded), 1 (stranded) and 2 (reversely stranded)
+    EXTRA: '--primary'
+    
+NASCENT_GENECOUNTS:
+    MIN_TOTAL_READS: 10
+    MIN_CONVERSIONS: 2
+    MERGE_COLUMNS: ['total_counts', 'nascent_counts', 'nascent_fraction']
+
+
+UNALIGNED_READS:
+    HEAD_N: 15
+    SUBSAMPLE_FRACT: 0.33
+
+# --------------------------- Params for downstream analysis ---------------------------- #
+
+BAKR:
+    MIN_BASE_DIST: 5 # Base distance from read-end filter (default: 5)
+    MIN_BASE_Q: 40 # Base minimal quality filter (default: 40)
+    STRANDEDNESS: 'F' # Is first read forward or reverse orientation? (options: F, R) 
+                      # [F means read 1 represents original RNA sequence (vs. its reverse complement)]
+
+    # GENE_FLAG: 'FALSE' # Whether reads were assigned to genes
+    # EXON_FLAG: 'FALSE' # Whether reads were assigned to exons
+    # EXONBIN_FLAG: 'FALSE' # Whether reads were assigned to exonbins
+    # TRANSCRIPT_FLAG: 'FALSE' # Whether reads were assigned to transcripts
+
+
+# --------------------------- Params for figures ---------------------------- #
+
+CONVERSION_RATES:
+    ERCC_PLOT: ['ERCC-00002', 'ERCC-00043', 'ERCC-00092', 'ERCC-00136', 'ERCC-00145', 'ERCC-00170']

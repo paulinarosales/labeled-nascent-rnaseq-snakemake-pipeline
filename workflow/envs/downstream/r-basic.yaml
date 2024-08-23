@@ -1,0 +1,13 @@
+name: r-basic
+channels:
+  - conda-forge
+  - defaults
+  - bioconda
+dependencies:
+  - r-data.table =1.15.2
+  - r-readr =2.1.4 
+  - r-dplyr =1.1.2
+  - r-tibble =3.2.1
+  - r-tidyverse
+  - r-ggplot2 =3.5.0
+  - r-gridextra =2.3

@@ -1,0 +1,10 @@
+config/*.pdf
+config/*.csv
+results/
+resources/
+report*/
+logs/
+joblogs/
+profiles/
+.snakemake
+.vscode
